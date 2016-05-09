@@ -1,0 +1,6 @@
+[package]
+name = "reaktor-orbital-challenge"
+version = "0.1.0"
+authors = ["Justin LeFebvre <jstnlefebvre@gmail.com>"]
+
+[dependencies]
