@@ -1,7 +1,10 @@
+extern crate nalgebra;
+
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use nalgebra::{Vector3, Norm};
 
 // Earth's radius in km
 const EARTH_RADIUS: f64 = 6371.0;
@@ -15,20 +18,28 @@ fn main() {
 }
 
 
+fn convert_lat_long_to_vector(latitude: f64, longtitude: f64) -> Vector3<f64> {
+    let lat = latitude.to_radians();
+    let long = longtitude.to_radians();
+    let x = EARTH_RADIUS * lat.cos() * long.cos();
+    let y = EARTH_RADIUS * lat.cos() * long.sin();
+    let z = EARTH_RADIUS * lat.sin();
+    Vector3::new(x, y, z)
+}
+
+
 #[derive(Debug)]
 struct Route {
-    start_lat: f64,
-    start_long: f64,
-    end_lat: f64,
-    end_long: f64
+    start: Vector3<f64>,
+    end: Vector3<f64>,
 }
 impl Route {
-    fn new(start_lat: f64, start_long: f64, end_lat: f64, end_long: f64) -> Route {
+    fn new(start_lat: f64, start_long: f64, end_lat: f64, end_long: f64) -> Self {
+        let start = convert_lat_long_to_vector(start_lat, start_long);
+        let end = convert_lat_long_to_vector(end_lat, end_long);
         Route {
-            start_lat: start_lat,
-            start_long: start_long,
-            end_lat: end_lat,
-            end_long: end_long
+            start: start,
+            end: end
         }
     }
 }
@@ -37,17 +48,14 @@ impl Route {
 #[derive(Debug)]
 struct Satellite {
     id: String,
-    latitude: f64,
-    longtitude: f64,
-    altitude: f64
+    position: Vector3<f64>
 }
 impl Satellite {
     fn new(id: String, latitude: f64, longtitude: f64, altitude: f64) -> Self {
+        let v = convert_lat_long_to_vector(latitude, longtitude);
         Satellite {
             id: id,
-            latitude: latitude,
-            longtitude: longtitude,
-            altitude: altitude
+            position: v + (altitude * v.normalize())
         }
     }
 }
@@ -62,7 +70,7 @@ fn parse_data_file(path: &Path) -> (Vec<Satellite>, Route) {
         Ok(file) => BufReader::new(file)
     };
 
-    let mut satellites: Vec<Satellite> = Vec::new();
+    let mut satellites = Vec::new();
     let mut route = None;
 
     for (i, line) in file.lines().enumerate() {
