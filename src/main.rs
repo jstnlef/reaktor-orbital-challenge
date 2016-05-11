@@ -13,8 +13,11 @@ const EARTH_RADIUS: f64 = 6371.0;
 fn main() {
     let file_path = Path::new("data_file.txt");
     let (satellites, route) = parse_data_file(file_path);
+    let network = generate_line_of_sight_network(&satellites, route);
+    let path_of_signal = network.transmit_signal(route);
     println!("{:?}", satellites);
     println!("{:?}", route);
+    println!("{}", path_of_signal.join(","));
 }
 
 
@@ -28,7 +31,28 @@ fn convert_lat_long_to_vector(latitude: f64, longtitude: f64) -> Vector3<f64> {
 }
 
 
+fn has_line_of_sight(v1: Vector3<f64>, v2: Vector3<f64>) -> bool {
+    false
+}
+
+
+fn generate_line_of_sight_network(satellites: &[Satellite], route: Route) -> Network {
+    Network{}
+}
+
+
 #[derive(Debug)]
+struct Network {
+
+}
+impl Network {
+    fn transmit_signal(&self, route: Route) -> Vec<String>{
+        vec!["test".to_string(), "test2".to_string()]
+    }
+}
+
+
+#[derive(Clone, Copy, Debug)]
 struct Route {
     start: Vector3<f64>,
     end: Vector3<f64>,
@@ -92,4 +116,14 @@ fn parse_data_file(path: &Path) -> (Vec<Satellite>, Route) {
     }
 
     (satellites, route.unwrap())
+}
+
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_has_line_of_sight() {
+        assert!(false);
+    }
 }
