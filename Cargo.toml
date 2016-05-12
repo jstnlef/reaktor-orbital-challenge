@@ -5,3 +5,5 @@ authors = ["Justin LeFebvre <jstnlefebvre@gmail.com>"]
 
 [dependencies]
 nalgebra = "0.8.2"
+ncollide = "0.9.1"
+

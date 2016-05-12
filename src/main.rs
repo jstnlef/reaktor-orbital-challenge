@@ -1,13 +1,17 @@
 extern crate nalgebra;
+extern crate ncollide;
 
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use nalgebra::{Vector3, Norm};
+
+use nalgebra::{Vector3, Point3, Identity, Norm};
+use ncollide::bounding_volume::BoundingSphere;
+use ncollide::query::{Ray, RayCast};
 
 // Earth's radius in km
-const EARTH_RADIUS: f64 = 6371.0;
+pub const EARTH_RADIUS: f64 = 6371.0;
 
 
 fn main() {
@@ -30,9 +34,12 @@ fn convert_lat_long_to_vector(latitude: f64, longtitude: f64) -> Vector3<f64> {
     Vector3::new(x, y, z)
 }
 
-
-fn has_line_of_sight(v1: Vector3<f64>, v2: Vector3<f64>) -> bool {
-    false
+// 2 Vectors have line of sight if the vector created between the 2 doesn't intersect the earth.
+pub fn has_line_of_sight(v1: Vector3<f64>, v2: Vector3<f64>) -> bool {
+    let earth = BoundingSphere::new(Point3::new(0.0, 0.0, 0.0), EARTH_RADIUS);
+    let direction = (v2 - v1).normalize();
+    let ray = Ray::new(v1.to_point(), direction);
+    !earth.intersects_ray(&Identity::new(), &ray)
 }
 
 
@@ -46,7 +53,7 @@ struct Network {
 
 }
 impl Network {
-    fn transmit_signal(&self, route: Route) -> Vec<String>{
+    fn transmit_signal(&self, route: Route) -> Vec<String> {
         vec!["test".to_string(), "test2".to_string()]
     }
 }
@@ -69,8 +76,8 @@ impl Route {
 }
 
 
-#[derive(Debug)]
-struct Satellite {
+#[derive(Debug, PartialEq)]
+pub struct Satellite {
     id: String,
     position: Vector3<f64>
 }
@@ -121,9 +128,23 @@ fn parse_data_file(path: &Path) -> (Vec<Satellite>, Route) {
 
 mod tests {
     use super::*;
+    use nalgebra::{Vector3};
 
     #[test]
     fn test_has_line_of_sight() {
-        assert!(false);
+        let a = Satellite::new("test".to_string(), 0.0, 0.0, 300.0);
+        let b = Satellite::new("test2".to_string(), 0.0, 180.0, 300.0);
+        assert_eq!(has_line_of_sight(a.position, b.position), false);
+        let c = Satellite::new("test2".to_string(), 0.0, 0.0, 400.0);
+        assert_eq!(has_line_of_sight(a.position, c.position), true);
+    }
+
+    #[test]
+    fn test_satellite_creation_cartesian() {
+        let on_earth = Satellite::new("testA".to_string(), 0.0, 0.0, 0.0);
+        let in_space = Satellite::new("testB".to_string(), 0.0, 0.0, 200.0);
+
+        assert_eq!(on_earth.position, Vector3::new(EARTH_RADIUS, 0.0, 0.0));
+        assert_eq!(in_space.position, Vector3::new(EARTH_RADIUS + 200.0, 0.0, 0.0));
     }
 }
