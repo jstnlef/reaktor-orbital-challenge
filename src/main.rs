@@ -19,9 +19,13 @@ pub const EARTH_RADIUS: f64 = 6371.0;
 fn main() {
     let file_path = Path::new("data_file.txt");
     let (satellites, route) = parse_data_file(file_path);
-    let network = generate_satellite_network(&satellites);
-    let path_of_signal = network.transmit_signal(route);
-    println!("{}", path_of_signal.join(","));
+    let mut locations = Vec::new();
+    locations.extend(satellites);
+    locations.push(Location {id: "START".to_string(), position: route.start});
+    locations.push(Location {id: "END".to_string(), position: route.end});
+    let network = generate_line_of_sight_network(&locations);
+    let path_of_signal = network.transmit_signal();
+    println!("{}", path_of_signal[1..path_of_signal.len()-1].join(","));
 }
 
 
@@ -52,12 +56,11 @@ pub fn has_line_of_sight(v1: Vector3<f64>, v2: Vector3<f64>) -> bool {
 }
 
 
-fn generate_satellite_network(satellites: &[Satellite]) -> Network {
+fn generate_line_of_sight_network(locations: &[Location]) -> Network {
     let mut graph = Vec::new();
-
-    for s1 in satellites {
+    for s1 in locations.iter() {
         let mut adjacent = Vec::new();
-        for (i, s2) in satellites.iter().enumerate() {
+        for (i, s2) in locations.iter().enumerate() {
             if s1 != s2 && has_line_of_sight(s1.position, s2.position) {
                 adjacent.push(Vertex{
                     cost: distance(&s1.position.to_point(), &s2.position.to_point()) as i32,
@@ -73,17 +76,17 @@ fn generate_satellite_network(satellites: &[Satellite]) -> Network {
 
 
 struct Network {
-    graph: Graph<Satellite>
+    graph: Graph<Location>
 }
 impl Network {
-    fn new(v: Vec<Node<Satellite>>) -> Self {
+    fn new(v: Vec<Node<Location>>) -> Self {
         Network {
             graph: Graph::new(v)
         }
     }
 
-    fn transmit_signal(&self, route: Route) -> Vec<String> {
-        let path = self.graph.search_using_index(10, 14);
+    fn transmit_signal(&self) -> Vec<String> {
+        let path = self.graph.search_using_index(20, 21);
         let mut result = Vec::new();
         if let Some(path) = path {
             for i in path {
@@ -106,22 +109,22 @@ impl Route {
         let start = convert_lat_long_to_vector(start_lat, start_long);
         let end = convert_lat_long_to_vector(end_lat, end_long);
         Route {
-            start: start,
-            end: end
+            start: start + (0.1 * start.normalize()),
+            end: end + (0.1 * end.normalize())
         }
     }
 }
 
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Satellite {
+pub struct Location {
     id: String,
     position: Vector3<f64>
 }
-impl Satellite {
+impl Location {
     fn new(id: String, latitude: f64, longtitude: f64, altitude: f64) -> Self {
         let v = convert_lat_long_to_vector(latitude, longtitude);
-        Satellite {
+        Location {
             id: id,
             position: v + (altitude * v.normalize())
         }
@@ -129,7 +132,7 @@ impl Satellite {
 }
 
 
-fn parse_data_file(path: &Path) -> (Vec<Satellite>, Route) {
+fn parse_data_file(path: &Path) -> (Vec<Location>, Route) {
     let file_path = Path::new(path);
     let display = path.display();
 
@@ -150,7 +153,7 @@ fn parse_data_file(path: &Path) -> (Vec<Satellite>, Route) {
             route = Some(Route::new(parsed[0], parsed[1], parsed[2], parsed[3]));
         } else {
             let parsed: Vec<&str> = s.split(",").collect();
-            satellites.push(Satellite::new(
+            satellites.push(Location::new(
                 parsed[0].to_string(),
                 parsed[1].parse::<f64>().unwrap(),
                 parsed[2].parse::<f64>().unwrap(),
@@ -160,29 +163,4 @@ fn parse_data_file(path: &Path) -> (Vec<Satellite>, Route) {
     }
 
     (satellites, route.unwrap())
-}
-
-
-mod tests {
-    use super::*;
-    use nalgebra::{Vector3};
-
-    #[test]
-    fn test_has_line_of_sight() {
-        let a = Satellite::new("test".to_string(), 0.0, 0.0, 300.0);
-        let b = Satellite::new("test2".to_string(), 0.0, 180.0, 300.0);
-        assert_eq!(has_line_of_sight(a.position, b.position), false);
-        let c = Satellite::new("test2".to_string(), 0.0, 0.0, 400.0);
-        assert_eq!(has_line_of_sight(a.position, c.position), true);
-        assert_eq!(has_line_of_sight(c.position, a.position), true);
-    }
-
-    #[test]
-    fn test_satellite_creation_cartesian() {
-        let on_earth = Satellite::new("testA".to_string(), 0.0, 0.0, 0.0);
-        let in_space = Satellite::new("testB".to_string(), 0.0, 0.0, 200.0);
-
-        assert_eq!(on_earth.position, Vector3::new(EARTH_RADIUS, 0.0, 0.0));
-        assert_eq!(in_space.position, Vector3::new(EARTH_RADIUS + 200.0, 0.0, 0.0));
-    }
 }
