@@ -37,9 +37,18 @@ fn convert_lat_long_to_vector(latitude: f64, longtitude: f64) -> Vector3<f64> {
 // 2 Vectors have line of sight if the vector created between the 2 doesn't intersect the earth.
 pub fn has_line_of_sight(v1: Vector3<f64>, v2: Vector3<f64>) -> bool {
     let earth = BoundingSphere::new(Point3::new(0.0, 0.0, 0.0), EARTH_RADIUS);
+    let sphere2 = BoundingSphere::new(v2.to_point(), 0.1);
+
     let direction = (v2 - v1).normalize();
     let ray = Ray::new(v1.to_point(), direction);
-    !earth.intersects_ray(&Identity::new(), &ray)
+
+    let earth_toi = earth.toi_with_ray(&Identity::new(), &ray, true);
+    let sphere2_toi = sphere2.toi_with_ray(&Identity::new(), &ray, true);
+
+    earth_toi.is_none() || match sphere2_toi {
+        Some(toi) => toi < earth_toi.unwrap(),
+        None => false
+    }
 }
 
 
@@ -137,6 +146,7 @@ mod tests {
         assert_eq!(has_line_of_sight(a.position, b.position), false);
         let c = Satellite::new("test2".to_string(), 0.0, 0.0, 400.0);
         assert_eq!(has_line_of_sight(a.position, c.position), true);
+        assert_eq!(has_line_of_sight(c.position, a.position), true);
     }
 
     #[test]
