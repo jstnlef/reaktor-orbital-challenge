@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Justin LeFebvre <jstnlefebvre@gmail.com>"]
 
 [dependencies]
+graphsearch = "0.6.0"
 nalgebra = "0.8.2"
 ncollide = "0.9.1"
 

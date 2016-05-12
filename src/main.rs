@@ -1,12 +1,14 @@
 extern crate nalgebra;
 extern crate ncollide;
+extern crate graphsearch;
 
 use std::error::Error;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use nalgebra::{Vector3, Point3, Identity, Norm};
+use graphsearch::{Graph, Node, Vertex};
+use nalgebra::{Vector3, Point3, Identity, Norm, distance};
 use ncollide::bounding_volume::BoundingSphere;
 use ncollide::query::{Ray, RayCast};
 
@@ -17,10 +19,8 @@ pub const EARTH_RADIUS: f64 = 6371.0;
 fn main() {
     let file_path = Path::new("data_file.txt");
     let (satellites, route) = parse_data_file(file_path);
-    let network = generate_line_of_sight_network(&satellites, route);
+    let network = generate_satellite_network(&satellites);
     let path_of_signal = network.transmit_signal(route);
-    println!("{:?}", satellites);
-    println!("{:?}", route);
     println!("{}", path_of_signal.join(","));
 }
 
@@ -52,18 +52,46 @@ pub fn has_line_of_sight(v1: Vector3<f64>, v2: Vector3<f64>) -> bool {
 }
 
 
-fn generate_line_of_sight_network(satellites: &[Satellite], route: Route) -> Network {
-    Network{}
+fn generate_satellite_network(satellites: &[Satellite]) -> Network {
+    let mut graph = Vec::new();
+
+    for s1 in satellites {
+        let mut adjacent = Vec::new();
+        for (i, s2) in satellites.iter().enumerate() {
+            if s1 != s2 && has_line_of_sight(s1.position, s2.position) {
+                adjacent.push(Vertex{
+                    cost: distance(&s1.position.to_point(), &s2.position.to_point()) as i32,
+                    node: i
+                });
+            }
+        }
+        println!("{:?}: {:?}", s1.id, adjacent);
+        graph.push(Node{content: s1.clone(), adjacent: adjacent});
+    }
+    Network::new(graph)
 }
 
 
-#[derive(Debug)]
 struct Network {
-
+    graph: Graph<Satellite>
 }
 impl Network {
+    fn new(v: Vec<Node<Satellite>>) -> Self {
+        Network {
+            graph: Graph::new(v)
+        }
+    }
+
     fn transmit_signal(&self, route: Route) -> Vec<String> {
-        vec!["test".to_string(), "test2".to_string()]
+        let path = self.graph.search_using_index(10, 14);
+        let mut result = Vec::new();
+        if let Some(path) = path {
+            for i in path {
+                let satellite = self.graph.index_to_node(i).unwrap();
+                result.push(satellite.content.id.to_owned());
+            }
+        }
+        result
     }
 }
 
@@ -85,7 +113,7 @@ impl Route {
 }
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Satellite {
     id: String,
     position: Vector3<f64>
